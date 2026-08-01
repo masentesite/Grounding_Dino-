@@ -21,7 +21,7 @@ def create_lora_model(
     """
     print(f"[Model] Loading {model_id} ...")
     model = GroundingDinoForObjectDetection.from_pretrained(
-        model_id, local_files_only=True,
+        model_id,
     )
 
     # 微调初期 loss ~12 万是正常的（DETR encoder 预测 900 个框 vs ~7 个真值），

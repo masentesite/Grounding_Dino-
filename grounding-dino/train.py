@@ -2,6 +2,7 @@
 Grounding DINO + LoRA 训练入口
 """
 
+import time
 import torch
 from torch.utils.data import random_split
 from transformers import (
@@ -40,7 +41,7 @@ def main():
     GRADIENT_ACCUMULATION = 8
     LEARNING_RATE = 1e-4
     MAX_STEPS = 500
-    MAX_SAMPLES = 200
+    MAX_SAMPLES = 100  # 只用前100个数据，后面数据不对
     LORA_R = 8
     LORA_ALPHA = 16
     MODALITY = "depth"
@@ -50,7 +51,7 @@ def main():
           f"lr={LEARNING_RATE}, steps={MAX_STEPS}, samples={MAX_SAMPLES}")
 
     # --- 处理器 ---
-    processor = GroundingDinoProcessor.from_pretrained(MODEL_ID, local_files_only=True)
+    processor = GroundingDinoProcessor.from_pretrained(MODEL_ID)
 
     # --- 数据集 ---
     print("[Dataset] Building streaming dataset ...")
@@ -90,7 +91,7 @@ def main():
         save_strategy="steps",
         save_steps=100,
         save_total_limit=2,
-        bf16=True,  # RTX 5060 支持 BF16，省一半显存
+        fp16=True,  # 混合精度训练，省显存
         remove_unused_columns=False,
         dataloader_num_workers=0,
         report_to="none",
@@ -112,6 +113,38 @@ def main():
     model.save_pretrained(OUTPUT_DIR)
     processor.save_pretrained(OUTPUT_DIR)
     print("[Done]")
+
+    # --- 预测计时 ---
+    print("\n" + "=" * 60)
+    print("[Predict] 预测时间测试（val 集前 5 张图）...")
+    model.eval()
+    collator = GroundingDetCollator(processor)
+    predict_samples = min(5, len(val_ds))
+    total_time = 0.0
+
+    for i in range(predict_samples):
+        sample = val_ds[i]
+        batch = collator([sample])
+        labels = batch.pop("labels")
+        batch = {k: v.to(DEVICE) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+        for lbl in labels:
+            for k in lbl:
+                if isinstance(lbl[k], torch.Tensor):
+                    lbl[k] = lbl[k].to(DEVICE)
+
+        torch.cuda.synchronize()
+        t0 = time.time()
+        with torch.no_grad():
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                outputs = model(**batch, labels=labels)
+        torch.cuda.synchronize()
+        elapsed = time.time() - t0
+        total_time += elapsed
+        print(f"  [{i+1}/{predict_samples}] loss={outputs.loss.item():.4f}, time={elapsed*1000:.1f}ms")
+
+    avg_time = total_time / predict_samples
+    print(f"\n[Predict] 平均预测时间: {avg_time*1000:.1f}ms ({avg_time:.4f}s)")
+    print("=" * 60)
 
 
 if __name__ == "__main__":

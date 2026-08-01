@@ -64,6 +64,19 @@ class VisualGroundingDataset(Dataset):
         self.image_ids = [
             iid for iid, info in self.image_map.items() if info["annotations"]
         ]
+
+        # 过滤文本过长导致截断后标签不匹配的样本
+        valid_ids = []
+        for iid in self.image_ids:
+            info = self.image_map[iid]
+            text_str = ". ".join(info["queries"]) + "."
+            tokens = self.processor.tokenizer(text_str, add_special_tokens=True)
+            if len(tokens["input_ids"]) <= 256:
+                valid_ids.append(iid)
+        n_filtered = len(self.image_ids) - len(valid_ids)
+        self.image_ids = valid_ids
+        if n_filtered > 0:
+            print(f"[Dataset] Filtered {n_filtered} images with text > 256 tokens")
         if max_samples:
             self.image_ids = self.image_ids[:max_samples]
 
@@ -128,6 +141,7 @@ class GroundingDetCollator:
         inputs = self.processor(
             images=images, text=all_texts,
             return_tensors="pt", padding=True,
+            max_length=256, truncation=True,
         )
 
         labels = []
