@@ -1,0 +1,12 @@
+[Device] cuda
+[Config] batch=1, accum=8, lr=0.0001, steps=500, samples=100
+[Dataset] Building streaming dataset ...
+[Dataset] Filtered 12 images with text > 256 tokens
+[Dataset] 100 images, 497 boxes
+[Dataset] train=90, val=10
+[Model] Loading IDEA-Research/grounding-dino-base ...
+Loading weights:   0%|          | 0/1182 [00:00<?, ?it/s]Loading weights:  25%|██▌       | 297/1182 [00:00<00:00, 2965.07it/s]Loading weights:  50%|█████     | 594/1182 [00:00<00:00, 2823.51it/s]Loading weights:  78%|███████▊  | 918/1182 [00:00<00:00, 3007.16it/s]Loading weights: 100%|██████████| 1182/1182 [00:00<00:00, 3064.15it/s]
+trainable params: 5,268,504 || all params: 237,583,768 || trainable%: 2.2175
+
+[Train] Starting ...
+  0%|          | 0/500 [00:00<?, ?it/s]  0%|          | 1/500 [00:14<2:02:15, 14.70s/it]  0%|          | 2/500 [00:26<1:49:33, 13.20s/it]
